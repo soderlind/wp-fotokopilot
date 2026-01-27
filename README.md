@@ -6,6 +6,8 @@ A cross-platform Electron desktop app that connects to WordPress sites via the R
 ![Electron](https://img.shields.io/badge/electron-40.x-47848F.svg)
 ![React](https://img.shields.io/badge/react-19.x-61DAFB.svg)
 
+<img width="1205" height="853" alt="wp-fotokopilot" src="https://github.com/user-attachments/assets/bac57c32-4f0a-41fb-96f1-697342281273" />
+
 ## Features
 
 - 🔗 **Connect** to any WordPress site with REST API enabled
