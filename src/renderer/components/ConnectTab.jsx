@@ -72,35 +72,89 @@ export default function ConnectTab() {
             {sites.map((site) => (
               <li
                 key={site.id}
-                className="flex items-center justify-between"
+                onClick={() => handleSelectSite(site.id)}
                 style={{
-                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  padding: '12px 16px',
                   background:
                     activeSiteId === site.id
                       ? 'var(--accent)'
                       : 'var(--bg-card)',
                   borderRadius: 'var(--radius)',
                   marginBottom: '8px',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (activeSiteId !== site.id) {
+                    e.currentTarget.style.background = 'var(--bg-tertiary)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeSiteId !== site.id) {
+                    e.currentTarget.style.background = 'var(--bg-card)'
+                  }
                 }}
               >
-                <div>
-                  <strong>{site.name || site.url}</strong>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong>{site.name || site.url}</strong>
+                    {site.capabilities?.vmf && (
+                      <span style={{ 
+                        fontSize: '10px', 
+                        background: activeSiteId === site.id 
+                          ? 'rgba(255, 255, 255, 0.2)' 
+                          : 'rgba(46, 204, 113, 0.2)', 
+                        color: activeSiteId === site.id 
+                          ? 'white' 
+                          : '#2ecc71',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                        border: activeSiteId === site.id 
+                          ? '1px solid rgba(255, 255, 255, 0.3)' 
+                          : '1px solid rgba(46, 204, 113, 0.3)',
+                      }}>
+                        VMF
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: '12px', opacity: 0.7 }}>
                     {site.url}
-                    {site.capabilities?.vmf && ' • VMF ✓'}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  {activeSiteId === site.id ? (
+                    <span style={{ 
+                      color: 'white', 
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      padding: '6px 12px',
+                    }}>
+                      ✓ Active
+                    </span>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '13px' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSelectSite(site.id)
+                      }}
+                    >
+                      Select
+                    </button>
+                  )}
                   <button
                     className="btn btn-secondary"
-                    onClick={() => handleSelectSite(site.id)}
-                    disabled={activeSiteId === site.id}
-                  >
-                    {activeSiteId === site.id ? 'Active' : 'Select'}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => handleRemoveSite(site.id)}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveSite(site.id)
+                    }}
                   >
                     Remove
                   </button>

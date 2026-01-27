@@ -35,9 +35,25 @@ export function createWpClient({ url, username, password }) {
     }
 
     if (!response.ok) {
-      const error = new Error(`WordPress API error: ${response.status}`)
-      error.code = 'WP_ERROR'
+      // Try to get error details from response body
+      let errorMessage = `WordPress API error: ${response.status}`
+      let errorData = null
+      try {
+        errorData = await response.json()
+        if (errorData.message) {
+          errorMessage = errorData.message
+        }
+        if (errorData.code) {
+          errorMessage = `${errorData.code}: ${errorMessage}`
+        }
+      } catch {
+        // Response wasn't JSON
+      }
+      
+      const error = new Error(errorMessage)
+      error.code = errorData?.code || 'WP_ERROR'
       error.status = response.status
+      error.data = errorData
       throw error
     }
 
@@ -183,6 +199,136 @@ export function createWpClient({ url, username, password }) {
     async getMedia(mediaId) {
       const { data } = await request(`/wp/v2/media/${mediaId}`)
       return data
+    },
+
+    async getUncategorizedMedia(limit = 50) {
+      // Query media not assigned to any vmfo_folder taxonomy term
+      // VMF stores folder assignments as terms in the vmfo_folder taxonomy
+      // Media without any vmfo_folder terms are uncategorized
+      const results = []
+      let page = 1
+      const perPage = Math.min(limit, 100)
+
+      while (results.length < limit) {
+        // Fetch media with vmfo_folder filter set to empty (no terms)
+        // This requires checking each media item's vmfo_folder terms
+        const { data, headers } = await request(
+          `/wp/v2/media?per_page=${perPage}&page=${page}&media_type=image`
+        )
+
+        for (const item of data) {
+          // Check if media has no vmfo_folder terms
+          // vmfo_folder is stored as an array of term IDs on the media item
+          const folderTerms = item.vmfo_folder || []
+          
+          if (folderTerms.length === 0) {
+            const thumbnailUrl =
+              item.media_details?.sizes?.thumbnail?.source_url ||
+              item.media_details?.sizes?.medium?.source_url
+
+            results.push({
+              id: item.id,
+              sourceUrl: item.source_url,
+              thumbnailUrl,
+              filename: item.slug,
+              title: item.title?.rendered || '',
+              currentAlt: item.alt_text || '',
+              caption: item.caption?.rendered || '',
+              mimeType: item.mime_type,
+            })
+
+            if (results.length >= limit) break
+          }
+        }
+
+        const totalPages = parseInt(headers.get('X-WP-TotalPages') || '1')
+        if (data.length < perPage || page >= totalPages) {
+          break
+        }
+
+        page++
+      }
+
+      return results
+    },
+
+    /**
+     * Install and activate a plugin from WordPress.org
+     * @param {string} slug - The plugin slug from wordpress.org
+     * @returns {Promise<{plugin: string, status: string, name: string}>}
+     */
+    async installPlugin(slug) {
+      const { data } = await request('/wp/v2/plugins', {
+        method: 'POST',
+        body: JSON.stringify({
+          slug,
+          status: 'active',
+        }),
+      })
+      return {
+        plugin: data.plugin,
+        status: data.status,
+        name: data.name,
+      }
+    },
+
+    /**
+     * List all installed plugins
+     * @returns {Promise<Array<{plugin: string, status: string, name: string}>>}
+     */
+    async listPlugins() {
+      const { data } = await request('/wp/v2/plugins')
+      return data.map(p => ({
+        plugin: p.plugin,
+        status: p.status,
+        name: p.name,
+      }))
+    },
+
+    /**
+     * Find a plugin by slug (searches in the plugin identifier)
+     * @param {string} slug - The plugin slug to search for
+     * @returns {Promise<{plugin: string, status: string, name: string}|null>}
+     */
+    async findPluginBySlug(slug) {
+      const plugins = await this.listPlugins()
+      // Plugin identifiers are like "plugin-folder/plugin-file.php"
+      // The folder usually matches the slug
+      return plugins.find(p => p.plugin.startsWith(`${slug}/`)) || null
+    },
+
+    /**
+     * Activate an already installed plugin
+     * @param {string} plugin - The plugin identifier (e.g., 'virtual-media-folders/virtual-media-folders.php')
+     * @returns {Promise<{status: string}>}
+     */
+    async activatePlugin(plugin) {
+      const { data } = await request(`/wp/v2/plugins/${encodeURIComponent(plugin)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: 'active',
+        }),
+      })
+      return {
+        status: data.status,
+      }
+    },
+
+    /**
+     * Get plugin status
+     * @param {string} plugin - The plugin identifier
+     * @returns {Promise<{status: string, name: string}|null>}
+     */
+    async getPluginStatus(plugin) {
+      try {
+        const { data } = await request(`/wp/v2/plugins/${encodeURIComponent(plugin)}`)
+        return {
+          status: data.status,
+          name: data.name,
+        }
+      } catch {
+        return null
+      }
     },
   }
 }

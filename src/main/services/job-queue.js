@@ -139,6 +139,7 @@ export class JobQueue extends EventEmitter {
         id: i.id,
         status: i.status,
         proposedAlt: i.proposedAlt || i.result?.altText,
+        result: i.result, // Include full result for folder suggestions etc.
         error: i.error,
       })),
     }

@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: (id) => ipcRenderer.invoke('site:get', id),
   },
 
+  plugin: {
+    install: (siteId, slug) => ipcRenderer.invoke('plugin:install', { siteId, slug }),
+  },
+
   scan: {
     start: (options) => ipcRenderer.invoke('scan:start', options),
     cancel: () => ipcRenderer.invoke('scan:cancel'),
@@ -46,6 +50,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('vmf:createPath', { siteId, path }),
     assign: (siteId, folderId, mediaIds) =>
       ipcRenderer.invoke('vmf:assign', { siteId, folderId, mediaIds }),
+    uncategorized: (siteId, limit) =>
+      ipcRenderer.invoke('vmf:uncategorized', { siteId, limit }),
+  },
+
+  media: {
+    scan: (siteId, options) =>
+      ipcRenderer.invoke('media:scan', { siteId, ...options }),
   },
 
   settings: {

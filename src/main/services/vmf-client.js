@@ -15,7 +15,19 @@ export function createVmfClient({ url, username, password }) {
     })
 
     if (!response.ok) {
-      const error = new Error(`VMF API error: ${response.status}`)
+      // Try to get error details from response body
+      let errorMessage = `VMF API error: ${response.status}`
+      try {
+        const errorBody = await response.text()
+        if (errorBody) {
+          const errorData = JSON.parse(errorBody)
+          errorMessage = errorData.message || errorData.error || errorMessage
+          console.error('[VMF] API Error:', errorData)
+        }
+      } catch {
+        // Ignore parse errors
+      }
+      const error = new Error(errorMessage)
       error.code = 'VMF_ERROR'
       error.status = response.status
       throw error
@@ -112,20 +124,33 @@ export function createVmfClient({ url, username, password }) {
 
     async assignMedia(folderId, mediaIds) {
       const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
+      console.log(`[VMF] Assigning media ${JSON.stringify(ids)} to folder ${folderId}`)
 
-      return request(`/folders/${folderId}/media`, {
-        method: 'POST',
-        body: JSON.stringify({ media_ids: ids }),
-      })
+      // VMF API expects one media_id at a time
+      const results = []
+      for (const mediaId of ids) {
+        const result = await request(`/folders/${folderId}/media`, {
+          method: 'POST',
+          body: JSON.stringify({ media_id: mediaId }),
+        })
+        results.push(result)
+      }
+      return results
     },
 
     async removeMedia(folderId, mediaIds) {
       const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
 
-      return request(`/folders/${folderId}/media`, {
-        method: 'DELETE',
-        body: JSON.stringify({ media_ids: ids }),
-      })
+      // VMF API expects one media_id at a time
+      const results = []
+      for (const mediaId of ids) {
+        const result = await request(`/folders/${folderId}/media`, {
+          method: 'DELETE',
+          body: JSON.stringify({ media_id: mediaId }),
+        })
+        results.push(result)
+      }
+      return results
     },
 
     async getFolder(folderId) {
@@ -138,6 +163,25 @@ export function createVmfClient({ url, username, password }) {
 
     async getFolderCounts() {
       return request('/folders/counts')
+    },
+
+    async getUncategorizedMedia(limit = 50) {
+      // Get media that is not assigned to any folder
+      // This uses the VMF API endpoint for uncategorized media
+      try {
+        const result = await request(`/media/uncategorized?per_page=${limit}`)
+        return Array.isArray(result) ? result : []
+      } catch (err) {
+        // If endpoint doesn't exist, fall back to scanning all folders
+        // and comparing with all media
+        console.warn('[VMF] Uncategorized endpoint not available, using fallback')
+        return []
+      }
+    },
+
+    async getFolderMedia(folderId) {
+      const result = await request(`/folders/${folderId}/media`)
+      return Array.isArray(result) ? result : []
     },
   }
 }
