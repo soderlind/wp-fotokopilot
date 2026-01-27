@@ -5,7 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-01-27
+
+### Added
+
+- **Plugin Management**
+  - Install and activate WordPress plugins via REST API
+  - Automatic VMF plugin installation from wordpress.org
+  - Plugin listing and status checking
+  - Multisite-aware error handling with guidance for Network Admin
+
+- **UX Improvements**
+  - Clickable site cards in Connect tab
+  - VMF capability badge on connected sites (adapts to selection state)
+  - Renamed "Media" tab to "Alt Text" for clarity
+  - VMF installation prompt with icon when plugin not detected
+  - Improved folder suggestions with dismiss functionality
+  - Assignment preview showing where images will be organized
+  - Collapsible folder hierarchy view
+  - Scan modes: "Uncategorized" (primary) and "All (Reorganize)"
+
+### Fixed
+
+- VMF API now uses correct `media_id` parameter (singular)
+- Job queue progress events include full result object for folder suggestions
+- Better error messages for WordPress Multisite plugin management
 
 ## [0.1.0] - 2026-01-27
 
@@ -77,5 +101,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No nodeIntegration in renderer
 - HTTPS-only for WordPress connections
 
-[Unreleased]: https://github.com/yourusername/wp-fotokopilot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourusername/wp-fotokopilot/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yourusername/wp-fotokopilot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/wp-fotokopilot/releases/tag/v0.1.0

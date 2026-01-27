@@ -12,7 +12,10 @@ A cross-platform Electron desktop app that connects to WordPress sites via the R
 - 🔍 **Scan** media library with filters (missing alt text only, limit)
 - 🤖 **Generate** alt text using GitHub Copilot with vision capabilities
 - ✏️ **Review** and edit suggestions before applying
-- 📁 **Organize** media into Virtual Media Folders (VMF plugin required)
+- 📁 **Organize** media into Virtual Media Folders (VMF plugin)
+  - Install VMF plugin directly from the app (single-site WordPress)
+  - Scan uncategorized media or reorganize all media
+  - AI-powered folder suggestions (existing or new folders)
 - 🌍 **Multi-language** prompts based on WordPress site language
 - 🔒 **Secure** credential storage using OS keychain (via Electron safeStorage)
 - 📊 **Export** changes to CSV or JSON
