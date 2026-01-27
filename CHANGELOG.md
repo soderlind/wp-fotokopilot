@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-27
+
+### Added
+
+- **Model Selection**
+  - Settings dropdown to select Copilot CLI model for alt text generation
+  - Dynamic model list fetched from GitHub Copilot SDK
+  - Filter to only show vision-capable models
+  - Model selection persisted in settings
+
+- **Copilot SDK Integration**
+  - `listModels()` API to query available models
+  - Vision capability detection via `capabilities.supports.vision`
+  - Model info includes id, name, and supportsVision flag
+
+### Changed
+
+- Default model changed from hardcoded `gpt-4o` to configurable via settings
+- Alt text generation now uses the model selected in settings
+
 ## [0.2.1] - 2026-01-27
 
 ### Fixed

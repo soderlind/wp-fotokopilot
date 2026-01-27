@@ -46,6 +46,7 @@ export function jobHandlers(mainWindow) {
                 // Use folder suggestion mode
                 const result = await generateAltTextWithFolder(imagePath, options.existingFolders, {
                   maxLength: settings.maxAltLength || 125,
+                  model: settings.copilotModel || 'gpt-4o',
                   languageName,
                   metadata: {
                     filename: item.filename,
@@ -60,6 +61,7 @@ export function jobHandlers(mainWindow) {
               
               const result = await generateAltText(imagePath, {
                 maxLength: settings.maxAltLength || 125,
+                model: settings.copilotModel || 'gpt-4o',
               })
               console.log(`[Job] Result for ${item.id}:`, result.altText || result.error)
               return result

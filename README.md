@@ -29,11 +29,48 @@ A cross-platform Electron desktop app that connects to WordPress sites via the R
   - Application password for authentication
   - (Optional) [Virtual Media Folders](https://developer.flavflavor.dev/virtual-media-folders/) plugin for folder organization
 
-## Installation
+## Installing Pre-built Binaries
+
+Download the latest release for your platform from the [Releases](https://github.com/soderlind/wp-fotokopilot/releases) page:
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `WP-FotoKopilot-x.x.x-arm64.dmg` |
+| macOS (Intel) | `WP-FotoKopilot-x.x.x-x64.dmg` |
+| Windows | `WP-FotoKopilot-x.x.x-Setup.exe` |
+| Linux (AppImage) | `WP-FotoKopilot-x.x.x.AppImage` |
+| Linux (deb) | `wp-fotokopilot_x.x.x_amd64.deb` |
+
+### macOS
+
+1. Download the `.dmg` file for your architecture
+2. Open the DMG and drag **WP FotoKopilot** to your Applications folder
+3. On first launch, right-click and select "Open" to bypass Gatekeeper
+
+### Windows
+
+1. Download the `.exe` installer
+2. Run the installer and follow the prompts
+3. Launch from Start menu or desktop shortcut
+
+### Linux
+
+**AppImage:**
+```bash
+chmod +x WP-FotoKopilot-*.AppImage
+./WP-FotoKopilot-*.AppImage
+```
+
+**Debian/Ubuntu:**
+```bash
+sudo dpkg -i wp-fotokopilot_*_amd64.deb
+```
+
+## Building from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/wp-fotokopilot.git
+git clone https://github.com/soderlind/wp-fotokopilot.git
 cd wp-fotokopilot
 
 # Install dependencies
@@ -41,6 +78,9 @@ npm install
 
 # Run in development mode
 npm run electron:dev
+
+# Build distributables
+npm run electron:build
 ```
 
 ## Usage
@@ -153,6 +193,7 @@ Settings are stored locally and can be configured in the **Settings** tab:
 | Max Alt Length | 125 | Maximum characters for generated alt text |
 | Concurrency | 3 | Number of parallel AI requests |
 | Export Format | CSV | Default export format (CSV or JSON) |
+| Model | gpt-4o | Copilot model for alt text generation |
 
 ## Security
 

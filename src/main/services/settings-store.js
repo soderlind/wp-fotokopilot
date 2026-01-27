@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   concurrency: 3,
   exportFormat: 'csv',
   copilotServerUrl: '',  // Empty = use default (auto-managed CLI)
+  copilotModel: 'gpt-4o',  // Default model for alt text generation
 }
 
 export async function getSettings() {
