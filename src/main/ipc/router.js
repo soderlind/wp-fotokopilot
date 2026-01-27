@@ -3,6 +3,7 @@ import { scanHandlers } from './scan.handlers.js'
 import { jobHandlers } from './job.handlers.js'
 import { vmfHandlers } from './vmf.handlers.js'
 import { settingsHandlers } from './settings.handlers.js'
+import { copilotHandlers } from './copilot.handlers.js'
 
 export function registerIpcHandlers(mainWindow, ipcMain) {
   const allHandlers = [
@@ -11,6 +12,7 @@ export function registerIpcHandlers(mainWindow, ipcMain) {
     ...jobHandlers(mainWindow),
     ...vmfHandlers(mainWindow),
     ...settingsHandlers(mainWindow),
+    ...copilotHandlers(mainWindow),
   ]
 
   for (const { channel, handler } of allHandlers) {

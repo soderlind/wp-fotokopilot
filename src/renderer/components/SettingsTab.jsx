@@ -99,6 +99,28 @@ export default function SettingsTab() {
         </div>
       </div>
 
+      <div className="card">
+        <h2 className="card-title">GitHub Copilot</h2>
+
+        <div className="form-group">
+          <label className="form-label">CLI Server URL</label>
+          <input
+            type="text"
+            className="form-input"
+            style={{ width: '250px' }}
+            value={localSettings.copilotServerUrl || ''}
+            onChange={(e) => updateSetting('copilotServerUrl', e.target.value.trim())}
+            placeholder="localhost:4321"
+          />
+          <small style={{ color: 'var(--text-secondary)', display: 'block' }}>
+            Leave empty to auto-manage CLI. To use server mode, run:{' '}
+            <code style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
+              copilot --server --port 4321
+            </code>
+          </small>
+        </div>
+      </div>
+
       <button className="btn btn-primary mt-4" onClick={handleSave}>
         Save Settings
       </button>

@@ -59,11 +59,29 @@ export const useAppStore = create((set, get) => ({
   setCurrentJob: (job) => set({ currentJob: job }),
   
   updateJobProgress: (progress) =>
-    set((state) => ({
-      currentJob: state.currentJob
+    set((state) => {
+      // Update currentJob with progress
+      const newCurrentJob = state.currentJob
         ? { ...state.currentJob, ...progress }
-        : undefined,
-    })),
+        : undefined
+
+      // Update mediaItems with proposedAlt from completed job items
+      let newMediaItems = state.mediaItems
+      if (progress.items && progress.items.length > 0) {
+        newMediaItems = state.mediaItems.map((mediaItem) => {
+          const jobItem = progress.items.find((ji) => ji.id === mediaItem.id)
+          if (jobItem && jobItem.proposedAlt) {
+            return { ...mediaItem, proposedAlt: jobItem.proposedAlt }
+          }
+          return mediaItem
+        })
+      }
+
+      return {
+        currentJob: newCurrentJob,
+        mediaItems: newMediaItems,
+      }
+    }),
 
   setSettings: (settings) =>
     set((state) => ({ settings: { ...state.settings, ...settings } })),

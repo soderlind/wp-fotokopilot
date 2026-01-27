@@ -52,4 +52,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (settings) => ipcRenderer.invoke('settings:set', settings),
   },
+
+  copilot: {
+    status: () => ipcRenderer.invoke('copilot:status'),
+    auth: () => ipcRenderer.invoke('copilot:auth'),
+    setServerUrl: (url) => ipcRenderer.invoke('copilot:setServerUrl', url),
+    getServerUrl: () => ipcRenderer.invoke('copilot:getServerUrl'),
+  },
 })

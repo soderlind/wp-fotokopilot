@@ -3,6 +3,9 @@ import { validateAltText } from '../utils/validation.js'
 
 let client
 
+// Configuration for connecting to CLI server
+let cliServerUrl = null
+
 // Session-suggested folders to track newly suggested folders during a session
 // This prevents the AI from suggesting duplicate new folders
 let sessionSuggestedFolders = new Set()
@@ -127,11 +130,40 @@ function buildFolderUserPrompt(metadata, existingFolders, sessionSuggested) {
   return prompt
 }
 
+/**
+ * Configure the Copilot client to connect to an external CLI server
+ * @param {string|null} url - URL of the CLI server (e.g., "localhost:4321") or null to use default
+ */
+export function setCliServerUrl(url) {
+  cliServerUrl = url
+  // Force re-initialization with new URL
+  if (client) {
+    client = undefined
+  }
+}
+
+/**
+ * Get the current CLI server URL configuration
+ * @returns {string|null}
+ */
+export function getCliServerUrl() {
+  return cliServerUrl
+}
+
 export async function initCopilot() {
   if (client) return
 
-  client = new CopilotClient()
+  console.log('[Copilot] Initializing client...')
+  
+  const options = cliServerUrl ? { cliUrl: cliServerUrl } : {}
+  client = new CopilotClient(options)
+  
+  if (cliServerUrl) {
+    console.log(`[Copilot] Connecting to external CLI server: ${cliServerUrl}`)
+  }
+  
   await client.start()
+  console.log('[Copilot] Client started')
 }
 
 export async function stopCopilot() {
@@ -141,12 +173,70 @@ export async function stopCopilot() {
   }
 }
 
+/**
+ * Check if Copilot CLI is running and get status info
+ * @returns {Promise<{running: boolean, version?: string, protocolVersion?: number, error?: string}>}
+ */
+export async function checkCopilotStatus() {
+  try {
+    if (!client) {
+      await initCopilot()
+    }
+    
+    const status = await client.getStatus()
+    console.log('[Copilot] Status:', status)
+    
+    return {
+      running: true,
+      version: status.version,
+      protocolVersion: status.protocolVersion,
+    }
+  } catch (err) {
+    console.error('[Copilot] Status check failed:', err.message)
+    return {
+      running: false,
+      error: err.message,
+    }
+  }
+}
+
+/**
+ * Check if Copilot CLI is authenticated
+ * @returns {Promise<{authenticated: boolean, authType?: string, login?: string, host?: string, statusMessage?: string, error?: string}>}
+ */
+export async function checkCopilotAuth() {
+  try {
+    if (!client) {
+      await initCopilot()
+    }
+    
+    const auth = await client.getAuthStatus()
+    console.log('[Copilot] Auth status:', auth)
+    
+    return {
+      authenticated: auth.isAuthenticated,
+      authType: auth.authType,
+      login: auth.login,
+      host: auth.host,
+      statusMessage: auth.statusMessage,
+    }
+  } catch (err) {
+    console.error('[Copilot] Auth check failed:', err.message)
+    return {
+      authenticated: false,
+      error: err.message,
+    }
+  }
+}
+
 export async function generateAltText(imagePath, options = {}) {
   if (!client) {
     await initCopilot()
   }
 
   const maxLength = options.maxLength || 125
+  console.log(`[Copilot] Creating session for image: ${imagePath}`)
+  
   const session = await client.createSession({
     model: options.model || 'gpt-4o',
     systemMessage: {
@@ -156,32 +246,55 @@ export async function generateAltText(imagePath, options = {}) {
   })
 
   try {
+    console.log('[Copilot] Sending request...')
+    
+    // Use event-based approach to capture the response
+    let assistantContent = null
+    
+    session.on((event) => {
+      console.log(`[Copilot] Event: ${event.type}`)
+      if (event.type === 'assistant.message') {
+        assistantContent = event.data?.content
+        console.log('[Copilot] Got assistant message:', assistantContent?.substring(0, 100))
+      }
+      if (event.type === 'session.error') {
+        console.error('[Copilot] Session error:', event.data?.message)
+      }
+    })
+    
     const response = await session.sendAndWait(
       {
         prompt: `Generate alt text for this image. Maximum length: ${maxLength} characters.`,
         attachments: [{ type: 'file', path: imagePath }],
       },
-      30000
+      60000  // 60 second timeout
     )
 
-    const assistantMessage = response.messages.find(
-      (m) => m.role === 'assistant'
-    )
-    if (!assistantMessage?.content) {
-      throw new Error('No response from Copilot')
+    console.log('[Copilot] sendAndWait returned:', response?.type, response?.data?.content?.substring(0, 50))
+    
+    // Try to get content from response or from event
+    const content = response?.data?.content || assistantContent
+    
+    if (!content) {
+      console.error('[Copilot] No content received from Copilot')
+      throw new Error('No response from Copilot - check that Copilot CLI is installed and authenticated')
     }
 
-    const parsed = parseJsonResponse(assistantMessage.content)
+    console.log('[Copilot] Raw response:', content)
+    const parsed = parseJsonResponse(content)
     const validation = validateAltText(parsed.alt_text, maxLength)
 
     return {
       altText: parsed.alt_text,
       valid: validation.valid,
       issues: validation.issues,
-      raw: assistantMessage.content,
+      raw: content,
     }
+  } catch (err) {
+    console.error('[Copilot] Error:', err.message)
+    throw err
   } finally {
-    await session.close()
+    await session.destroy()
   }
 }
 
@@ -216,14 +329,17 @@ export async function generateAltTextWithFolder(
       30000
     )
 
-    const assistantMessage = response.messages.find(
-      (m) => m.role === 'assistant'
-    )
-    if (!assistantMessage?.content) {
+    // sendAndWait returns AssistantMessageEvent | null
+    if (!response || response.type !== 'assistant.message') {
       throw new Error('No response from Copilot')
     }
 
-    const parsed = parseJsonResponse(assistantMessage.content)
+    const content = response.data?.content
+    if (!content) {
+      throw new Error('Empty response from Copilot')
+    }
+
+    const parsed = parseJsonResponse(content)
     
     // Track new folder suggestions to prevent duplicates within session
     if (parsed.action === 'new' && parsed.new_folder_path) {
@@ -246,10 +362,10 @@ export async function generateAltTextWithFolder(
       reason: parsed.reason || '',
       valid: validation.valid,
       issues: validation.issues,
-      raw: assistantMessage.content,
+      raw: content,
     }
   } finally {
-    await session.close()
+    await session.destroy()
   }
 }
 

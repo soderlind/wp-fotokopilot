@@ -37,27 +37,36 @@ export function jobHandlers(mainWindow) {
 
         const handler = async (item) => {
           if (type === 'generate') {
-            const imagePath = await getThumbnailPath(item)
-            
-            if (options.withFolders && options.existingFolders) {
-              // Use folder suggestion mode
-              const result = await generateAltTextWithFolder(imagePath, options.existingFolders, {
+            try {
+              console.log(`[Job] Processing item ${item.id}: ${item.filename || item.sourceUrl}`)
+              const imagePath = await getThumbnailPath(item)
+              console.log(`[Job] Downloaded to: ${imagePath}`)
+              
+              if (options.withFolders && options.existingFolders) {
+                // Use folder suggestion mode
+                const result = await generateAltTextWithFolder(imagePath, options.existingFolders, {
+                  maxLength: settings.maxAltLength || 125,
+                  languageName,
+                  metadata: {
+                    filename: item.filename,
+                    title: item.title,
+                    alt: item.currentAlt,
+                    caption: item.caption,
+                  },
+                })
+                console.log(`[Job] Result for ${item.id}:`, result.altText || result.error)
+                return result
+              }
+              
+              const result = await generateAltText(imagePath, {
                 maxLength: settings.maxAltLength || 125,
-                languageName,
-                metadata: {
-                  filename: item.filename,
-                  title: item.title,
-                  alt: item.currentAlt,
-                  caption: item.caption,
-                },
               })
+              console.log(`[Job] Result for ${item.id}:`, result.altText || result.error)
               return result
+            } catch (err) {
+              console.error(`[Job] Error processing ${item.id}:`, err.message)
+              throw err
             }
-            
-            const result = await generateAltText(imagePath, {
-              maxLength: settings.maxAltLength || 125,
-            })
-            return result
           }
           if (type === 'apply') {
             await wpClient.updateAltText(item.id, item.proposedAlt)

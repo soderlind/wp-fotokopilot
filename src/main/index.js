@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc/router.js'
+import { initSettings } from './services/settings-store.js'
 
 const isDev = !app.isPackaged
 
@@ -31,7 +32,11 @@ function createWindow() {
   registerIpcHandlers(mainWindow, ipcMain)
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(async () => {
+  // Initialize settings and sync with services
+  await initSettings()
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
