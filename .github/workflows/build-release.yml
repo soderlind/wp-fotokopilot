@@ -94,9 +94,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          fail_on_unmatched_files: false
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
             artifacts/**/*.AppImage
             artifacts/**/*.deb
