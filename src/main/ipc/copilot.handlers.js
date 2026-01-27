@@ -3,6 +3,7 @@ import {
   checkCopilotAuth,
   setCliServerUrl,
   getCliServerUrl,
+  listModels,
 } from '../services/copilot-adapter.js'
 
 export function copilotHandlers(mainWindow) {
@@ -30,6 +31,12 @@ export function copilotHandlers(mainWindow) {
       channel: 'copilot:getServerUrl',
       async handler() {
         return { url: getCliServerUrl() }
+      },
+    },
+    {
+      channel: 'copilot:listModels',
+      async handler(options) {
+        return listModels(options)
       },
     },
   ]

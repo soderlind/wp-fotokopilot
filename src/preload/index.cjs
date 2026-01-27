@@ -69,5 +69,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     auth: () => ipcRenderer.invoke('copilot:auth'),
     setServerUrl: (url) => ipcRenderer.invoke('copilot:setServerUrl', url),
     getServerUrl: () => ipcRenderer.invoke('copilot:getServerUrl'),
+    listModels: (options) => ipcRenderer.invoke('copilot:listModels', options),
   },
 })

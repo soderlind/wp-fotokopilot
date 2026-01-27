@@ -150,6 +150,45 @@ export function getCliServerUrl() {
   return cliServerUrl
 }
 
+/**
+ * List available Copilot models
+ * @param {Object} options
+ * @param {boolean} [options.visionOnly=false] - Only return models that support vision
+ * @returns {Promise<Array<{id: string, name: string, supportsVision: boolean}>>}
+ */
+export async function listModels(options = {}) {
+  const { visionOnly = false } = options
+  
+  try {
+    if (!client) {
+      await initCopilot()
+    }
+    
+    const models = await client.listModels()
+    console.log('[Copilot] Available models:', models.map(m => `${m.id} (vision: ${m.capabilities?.supports?.vision})`))
+    
+    let filtered = models
+    if (visionOnly) {
+      filtered = models.filter(m => m.capabilities?.supports?.vision === true)
+      console.log('[Copilot] Vision-capable models:', filtered.map(m => m.id))
+    }
+    
+    return filtered.map(m => ({
+      id: m.id,
+      name: m.name || m.id,
+      supportsVision: m.capabilities?.supports?.vision ?? false,
+    }))
+  } catch (err) {
+    console.error('[Copilot] Failed to list models:', err.message)
+    // Return default vision-capable models as fallback
+    return [
+      { id: 'gpt-4o', name: 'GPT-4o', supportsVision: true },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', supportsVision: true },
+      { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', supportsVision: true },
+    ]
+  }
+}
+
 export async function initCopilot() {
   if (client) return
 

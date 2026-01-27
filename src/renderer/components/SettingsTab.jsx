@@ -9,6 +9,11 @@ export default function SettingsTab() {
 
   const [localSettings, setLocalSettings] = useState(settings)
   const [saved, setSaved] = useState(false)
+  const [availableModels, setAvailableModels] = useState([
+    { id: 'gpt-4o', name: 'GPT-4o', supportsVision: true },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', supportsVision: true },
+  ])
+  const [loadingModels, setLoadingModels] = useState(false)
 
   useEffect(() => {
     api.settings.get().then((s) => {
@@ -17,6 +22,22 @@ export default function SettingsTab() {
         setLocalSettings(s)
       }
     })
+  }, [api])
+
+  useEffect(() => {
+    setLoadingModels(true)
+    api.copilot.listModels({ visionOnly: true })
+      .then((models) => {
+        if (models && models.length > 0) {
+          setAvailableModels(models)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load models:', err)
+      })
+      .finally(() => {
+        setLoadingModels(false)
+      })
   }, [api])
 
   const handleSave = async () => {
@@ -101,6 +122,28 @@ export default function SettingsTab() {
 
       <div className="card">
         <h2 className="card-title">GitHub Copilot</h2>
+
+        <div className="form-group">
+          <label className="form-label">Model</label>
+          <select
+            className="form-input"
+            style={{ width: '250px' }}
+            value={localSettings.copilotModel || 'gpt-4o'}
+            onChange={(e) => updateSetting('copilotModel', e.target.value)}
+            disabled={loadingModels}
+          >
+            {availableModels.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+          {loadingModels && (
+            <small style={{ color: 'var(--text-secondary)', display: 'block' }}>
+              Loading available models...
+            </small>
+          )}
+        </div>
 
         <div className="form-group">
           <label className="form-label">CLI Server URL</label>
