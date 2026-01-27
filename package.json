@@ -1,6 +1,6 @@
 {
 	"name": "wp-fotokopilot",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Desktop app for WordPress media alt-text generation via GitHub Copilot",
 	"type": "module",
 	"main": "src/main/index.js",

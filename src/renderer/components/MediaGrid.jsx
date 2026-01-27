@@ -61,6 +61,10 @@ export default function MediaGrid({ items, selectable = false, showProposed = fa
                     Alt: {item.currentAlt.slice(0, 50)}
                     {item.currentAlt.length > 50 && '...'}
                   </span>
+                ) : item.proposedAlt ? (
+                  <span style={{ color: 'var(--success)' }}>
+                    ✓ Alt text added
+                  </span>
                 ) : (
                   <span style={{ color: 'var(--warning)' }}>No alt text</span>
                 )}

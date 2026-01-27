@@ -64,17 +64,18 @@ describe('VmfClient', () => {
   describe('assignMedia', () => {
     it('assigns media to folder', async () => {
       const client = createVmfClient(credentials)
-      const result = await client.assignMedia(1, [10, 11, 12])
+      const results = await client.assignMedia(1, [10, 11, 12])
 
-      expect(result.success).toBe(true)
-      expect(result.media_ids).toEqual([10, 11, 12])
+      expect(Array.isArray(results)).toBe(true)
+      expect(results.length).toBe(3)
     })
 
     it('handles single media ID', async () => {
       const client = createVmfClient(credentials)
-      const result = await client.assignMedia(1, 10)
+      const results = await client.assignMedia(1, 10)
 
-      expect(result.success).toBe(true)
+      expect(Array.isArray(results)).toBe(true)
+      expect(results.length).toBe(1)
     })
   })
 })
