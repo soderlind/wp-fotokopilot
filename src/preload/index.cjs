@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     list: () => ipcRenderer.invoke('site:list'),
     test: (config) => ipcRenderer.invoke('site:test', config),
     get: (id) => ipcRenderer.invoke('site:get', id),
+    refresh: (id) => ipcRenderer.invoke('site:refresh', id),
   },
 
   plugin: {

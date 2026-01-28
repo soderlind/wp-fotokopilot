@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-28
+
+### Added
+
+- **VMF:Improved Assignment Preview**
+  - Inline preview below progress bar during folder analysis
+  - Thumbnails displayed for each suggested folder (up to 10 per folder)
+  - Click thumbnails to view full-size image in modal
+  - Breadcrumb-style folder paths (e.g., "Nature / Beaches")
+  - "Apply All Suggestions" button in preview header
+  - NEW badge for folders that will be created
+
+- **Image Preview Modal**
+  - Full-size image view when clicking thumbnails
+  - Shows filename and suggested folder path
+  - Click outside or Close button to dismiss
+
+### Changed
+
+- Media grid cards hidden when Assignment Preview is shown
+- Cleaner UI during folder suggestion workflow
+
+### Fixed
+
+- Uncategorized media detection now correctly uses WordPress `_embed` taxonomy terms
+- Previously returned ~100 items when only 23 were actually uncategorized
+- VMF folder assignment count now accurate
+
 ## [0.3.0] - 2026-01-27
 
 ### Added

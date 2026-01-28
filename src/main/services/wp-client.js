@@ -210,18 +210,31 @@ export function createWpClient({ url, username, password }) {
       const perPage = Math.min(limit, 100)
 
       while (results.length < limit) {
-        // Fetch media with vmfo_folder filter set to empty (no terms)
-        // This requires checking each media item's vmfo_folder terms
+        // Fetch media and include vmfo_folder terms in response
+        // The _embed parameter or explicitly requesting terms via taxonomy is needed
         const { data, headers } = await request(
-          `/wp/v2/media?per_page=${perPage}&page=${page}&media_type=image`
+          `/wp/v2/media?per_page=${perPage}&page=${page}&media_type=image&vmfo_folder=0`
         )
+        
+        // If the vmfo_folder=0 filter works (VMF supports it), all returned items are uncategorized
+        // If it doesn't work, fall back to checking each item
+        const vmfoFilterSupported = data.length === 0 || data.every(item => {
+          const folderTerms = item.vmfo_folder || []
+          return folderTerms.length === 0
+        })
 
         for (const item of data) {
-          // Check if media has no vmfo_folder terms
-          // vmfo_folder is stored as an array of term IDs on the media item
+          // Check if media has no vmfo_folder terms (fallback check)
           const folderTerms = item.vmfo_folder || []
           
-          if (folderTerms.length === 0) {
+          // If vmfo_folder field is missing from response, we can't determine categorization
+          // In that case, skip this item (it means VMF doesn't expose the field)
+          if (!vmfoFilterSupported && !('vmfo_folder' in item)) {
+            console.warn('[WP] vmfo_folder field not in response, cannot determine uncategorized status for item', item.id)
+            continue
+          }
+          
+          if (vmfoFilterSupported || folderTerms.length === 0) {
             const thumbnailUrl =
               item.media_details?.sizes?.thumbnail?.source_url ||
               item.media_details?.sizes?.medium?.source_url

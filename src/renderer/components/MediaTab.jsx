@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useElectronAPI } from '../hooks/useElectronAPI'
 import { useAppStore } from '../stores/appStore'
 import { useScanProgress } from '../hooks/useScanProgress'
@@ -9,6 +9,8 @@ import ProgressBar from './ProgressBar'
 export default function MediaTab() {
   const api = useElectronAPI()
   const activeSiteId = useAppStore((state) => state.activeSiteId)
+  const sites = useAppStore((state) => state.sites)
+  const setSites = useAppStore((state) => state.setSites)
   const mediaItems = useAppStore((state) => state.mediaItems)
   const selectedItems = useAppStore((state) => state.selectedItems)
   const selectAllItems = useAppStore((state) => state.selectAllItems)
@@ -20,10 +22,37 @@ export default function MediaTab() {
   const [missingAltOnly, setMissingAltOnly] = useState(true)
   const [limit, setLimit] = useState('')
   const [error, setError] = useState('')
+  const [verifyingSite, setVerifyingSite] = useState(false)
+  const [siteUnreachable, setSiteUnreachable] = useState(false)
 
   useScanProgress()
   const currentJob = useJobProgress()
   const isRunning = currentJob?.status === 'running'
+
+  // Verify site is reachable when tab loads
+  useEffect(() => {
+    if (activeSiteId) {
+      verifySite()
+    }
+  }, [activeSiteId])
+
+  const verifySite = async () => {
+    setVerifyingSite(true)
+    setSiteUnreachable(false)
+    setError('')
+    try {
+      const refreshedSite = await api.site.refresh(activeSiteId)
+      // Update sites list with refreshed info
+      setSites(sites.map(s => 
+        s.id === activeSiteId ? { ...s, ...refreshedSite } : s
+      ))
+    } catch (err) {
+      setSiteUnreachable(true)
+      setError(`Site unreachable: ${err.message}`)
+    } finally {
+      setVerifyingSite(false)
+    }
+  }
 
   const itemsToProcess = mediaItems.filter((item) =>
     selectedItems.includes(item.id)
@@ -116,6 +145,38 @@ export default function MediaTab() {
       <div className="empty-state">
         <div className="empty-state-icon">🔗</div>
         <p>Please connect to a WordPress site first</p>
+      </div>
+    )
+  }
+
+  if (verifyingSite) {
+    return (
+      <div>
+        <h1 className="page-title">Media Library</h1>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div className="spinner" style={{ margin: '0 auto 16px' }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Verifying site connection...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (siteUnreachable) {
+    return (
+      <div>
+        <h1 className="page-title">Media Library</h1>
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div className="empty-state-icon">⚠️</div>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Cannot connect to the WordPress site. Please check that the site is online and your credentials are valid.
+          </p>
+          <button className="btn btn-primary" onClick={verifySite}>
+            Retry Connection
+          </button>
+        </div>
       </div>
     )
   }
