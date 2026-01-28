@@ -12,6 +12,7 @@ export default function ConnectTab() {
   const [password, setPassword] = useState('')
   const [testing, setTesting] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [verifying, setVerifying] = useState(null) // siteId being verified
   const [error, setError] = useState('')
   const [testResult, setTestResult] = useState(undefined)
 
@@ -52,8 +53,21 @@ export default function ConnectTab() {
     }
   }
 
-  const handleSelectSite = (siteId) => {
-    setActiveSite(siteId)
+  const handleSelectSite = async (siteId) => {
+    setVerifying(siteId)
+    setError('')
+    try {
+      const refreshedSite = await api.site.refresh(siteId)
+      // Update sites list with refreshed info
+      setSites(sites.map(s => 
+        s.id === siteId ? { ...s, ...refreshedSite } : s
+      ))
+      setActiveSite(siteId)
+    } catch (err) {
+      setError(`Site unreachable: ${err.message}`)
+    } finally {
+      setVerifying(null)
+    }
   }
 
   const handleRemoveSite = async (siteId) => {
@@ -127,7 +141,15 @@ export default function ConnectTab() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  {activeSiteId === site.id ? (
+                  {verifying === site.id ? (
+                    <span style={{ 
+                      color: 'var(--text-secondary)', 
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                    }}>
+                      Verifying...
+                    </span>
+                  ) : activeSiteId === site.id ? (
                     <span style={{ 
                       color: 'white', 
                       fontSize: '12px',
@@ -144,6 +166,7 @@ export default function ConnectTab() {
                         e.stopPropagation()
                         handleSelectSite(site.id)
                       }}
+                      disabled={verifying !== null}
                     >
                       Select
                     </button>
@@ -155,6 +178,7 @@ export default function ConnectTab() {
                       e.stopPropagation()
                       handleRemoveSite(site.id)
                     }}
+                    disabled={verifying !== null}
                   >
                     Remove
                   </button>

@@ -39,6 +39,21 @@ export function siteHandlers(mainWindow) {
       },
     },
     {
+      channel: 'site:refresh',
+      async handler(id) {
+        const creds = await getCredentials(id)
+        if (!creds) throw new Error('Site not found')
+        
+        const client = createWpClient(creds)
+        const info = await client.testConnection()
+        
+        // Update stored credentials with fresh capabilities
+        await saveCredentials(id, { ...creds, ...info })
+        
+        return { id, ...info }
+      },
+    },
+    {
       channel: 'plugin:install',
       async handler({ siteId, slug }) {
         const creds = await getCredentials(siteId)
@@ -104,8 +119,35 @@ export function siteHandlers(mainWindow) {
         
         // Update site capabilities after installing/activating VMF
         if (slug === 'virtual-media-folders') {
-          const info = await client.testConnection()
-          await saveCredentials(siteId, { ...creds, ...info })
+          // Wait a moment for WordPress to register the REST routes
+          // This is needed because newly activated plugins may not have their
+          // REST endpoints available immediately
+          console.log('[Plugin] Waiting for VMF REST routes to become available...')
+          
+          let vmfAvailable = false
+          for (let attempt = 1; attempt <= 5; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+            const info = await client.testConnection()
+            if (info.capabilities?.vmf) {
+              vmfAvailable = true
+              await saveCredentials(siteId, { ...creds, ...info })
+              console.log(`[Plugin] VMF REST routes available after ${attempt} attempt(s)`)
+              break
+            }
+            console.log(`[Plugin] VMF routes not yet available, attempt ${attempt}/5`)
+          }
+          
+          if (!vmfAvailable) {
+            console.log('[Plugin] VMF plugin activated but REST routes not yet available')
+            // Save without VMF capability - user may need to refresh
+            const info = await client.testConnection()
+            await saveCredentials(siteId, { ...creds, ...info })
+            // Add a note to the result
+            result.vmfNote = 'VMF plugin activated but REST routes not immediately available. ' +
+              'Visit wp-admin/options-permalink.php or wait and refresh.'
+          }
+          
+          result.vmfAvailable = vmfAvailable
         }
         
         return result

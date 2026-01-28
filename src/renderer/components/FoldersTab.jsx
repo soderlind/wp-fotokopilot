@@ -30,6 +30,7 @@ export default function FoldersTab() {
   const [creating, setCreating] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState(new Set())
   const [showHierarchy, setShowHierarchy] = useState(false)
+  const [checkingVmf, setCheckingVmf] = useState(false)
   
   // Media state
   const [mediaItems, setMediaItems] = useState([])
@@ -37,15 +38,39 @@ export default function FoldersTab() {
   const [selectedMedia, setSelectedMedia] = useState([])
   const [dismissedSuggestions, setDismissedSuggestions] = useState(new Set())
   const [scanMode, setScanMode] = useState('uncategorized') // 'uncategorized' | 'all'
+  const [previewImage, setPreviewImage] = useState(null) // For image modal
   
   const currentJob = useJobProgress()
   const isRunning = currentJob?.status === 'running'
 
+  // Check VMF availability each time the tab is opened
   useEffect(() => {
     if (activeSiteId) {
-      loadFolders()
+      checkVmfAvailability()
     }
   }, [activeSiteId])
+
+  const checkVmfAvailability = async () => {
+    setCheckingVmf(true)
+    try {
+      const refreshedSite = await api.site.refresh(activeSiteId)
+      // Update sites list with refreshed capabilities
+      const updatedSites = sites.map(s => 
+        s.id === activeSiteId ? { ...s, ...refreshedSite } : s
+      )
+      setSites(updatedSites)
+      
+      // If VMF is available, load folders
+      if (refreshedSite.capabilities?.vmf) {
+        await loadFolders()
+      }
+    } catch (err) {
+      console.error('Failed to check VMF availability:', err)
+      setError(err.message || 'Failed to check VMF availability')
+    } finally {
+      setCheckingVmf(false)
+    }
+  }
 
   const loadFolders = async () => {
     setLoading(true)
@@ -234,6 +259,52 @@ export default function FoldersTab() {
     ))
   }
 
+  const handleApplyAllSuggestions = async () => {
+    // Group items by folder (both existing and new)
+    const existingFolders = new Map()
+    const newFolders = new Map()
+    
+    mediaItems.forEach(item => {
+      if (!item.suggestedFolder || dismissedSuggestions.has(item.id)) return
+      
+      if (item.suggestedFolder.newFolderPath) {
+        const path = item.suggestedFolder.newFolderPath
+        if (!newFolders.has(path)) newFolders.set(path, [])
+        newFolders.get(path).push(item)
+      } else if (item.suggestedFolder.folderId) {
+        const id = item.suggestedFolder.folderId
+        if (!existingFolders.has(id)) existingFolders.set(id, [])
+        existingFolders.get(id).push(item)
+      }
+    })
+    
+    setError('')
+    const appliedIds = []
+    
+    try {
+      // Apply to existing folders
+      for (const [folderId, items] of existingFolders) {
+        const mediaIds = items.map(i => i.id)
+        await api.vmf.assign(activeSiteId, folderId, mediaIds)
+        appliedIds.push(...mediaIds)
+      }
+      
+      // Create and apply to new folders
+      for (const [folderPath, items] of newFolders) {
+        const folder = await api.vmf.createPath(activeSiteId, folderPath)
+        const mediaIds = items.map(i => i.id)
+        await api.vmf.assign(activeSiteId, folder.id, mediaIds)
+        appliedIds.push(...mediaIds)
+      }
+      
+      // Refresh folders and remove applied items
+      if (newFolders.size > 0) await loadFolders()
+      setMediaItems(prev => prev.filter(m => !appliedIds.includes(m.id)))
+    } catch (err) {
+      setError(err.message || 'Failed to apply suggestions')
+    }
+  }
+
   const toggleMediaSelection = (id) => {
     setSelectedMedia(prev => 
       prev.includes(id) 
@@ -341,10 +412,11 @@ export default function FoldersTab() {
   const hasAnySuggestions = hasNewFolderSuggestions || hasExistingSuggestions
 
   // Build preview tree: existing folders + new folders with their assigned images
+  // Shows full paths inline (simpler than tree hierarchy)
   const previewTree = useMemo(() => {
     if (!hasAnySuggestions) return null
     
-    // Create a map of all assignments
+    // Create a map of all assignments (only folders with items)
     const assignments = new Map()
     
     // Add existing folder assignments
@@ -357,7 +429,7 @@ export default function FoldersTab() {
       assignments.set(path, { isNew: true, path, items })
     })
     
-    // Sort by path for hierarchical display
+    // Sort by path for consistent display
     const sorted = Array.from(assignments.values()).sort((a, b) => 
       a.path.localeCompare(b.path)
     )
@@ -434,6 +506,21 @@ export default function FoldersTab() {
     } finally {
       setInstallingVmf(false)
     }
+  }
+
+  // Show loading state while checking VMF availability
+  if (checkingVmf) {
+    return (
+      <div>
+        <h1 className="page-title">Virtual Media Folders</h1>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div className="spinner" style={{ margin: '0 auto 16px' }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Checking VMF plugin availability...
+          </p>
+        </div>
+      </div>
+    )
   }
 
   // Show VMF installation prompt if plugin not available
@@ -534,345 +621,6 @@ export default function FoldersTab() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {/* Suggested New Folders Section */}
-      {hasNewFolderSuggestions && (
-        <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: '2px' }}>
-          <h2 className="card-title">✨ Suggested New Folders</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            AI suggests creating these new folders based on your uncategorized media:
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {Object.entries(suggestedFolderGroups.new).map(([path, items]) => (
-              <div
-                key={path}
-                style={{
-                  padding: '12px 16px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: 'var(--radius)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontWeight: 500, 
-                    color: 'var(--accent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}>
-                    <span>📁</span>
-                    <span>{path}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    {items.length} image{items.length > 1 ? 's' : ''} would be assigned
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: '4px', 
-                    marginTop: '8px',
-                    flexWrap: 'wrap',
-                  }}>
-                    {items.slice(0, 5).map(item => (
-                      <img
-                        key={item.id}
-                        src={item.thumbnailUrl || item.sourceUrl}
-                        alt=""
-                        style={{ 
-                          width: '40px', 
-                          height: '40px', 
-                          objectFit: 'cover',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    ))}
-                    {items.length > 5 && (
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '4px',
-                        background: 'var(--bg-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        color: 'var(--text-secondary)',
-                      }}>
-                        +{items.length - 5}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => handleDismissFolder(path, true)}
-                    style={{ padding: '8px 12px' }}
-                  >
-                    ✕ Dismiss
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => handleApplyAllForFolder(path, true)}
-                  >
-                    ✓ Create & Assign
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Suggested Existing Folders Section */}
-      {hasExistingSuggestions && (
-        <div className="card" style={{ borderColor: 'var(--success)', borderWidth: '2px' }}>
-          <h2 className="card-title">📁 Suggested Existing Folders</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            AI suggests assigning media to these existing folders:
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {Object.entries(suggestedFolderGroups.existing).map(([path, items]) => (
-              <div
-                key={path}
-                style={{
-                  padding: '12px 16px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: 'var(--radius)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontWeight: 500, 
-                    color: 'var(--success)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}>
-                    <span>📁</span>
-                    <span>{path}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    {items.length} image{items.length > 1 ? 's' : ''} would be assigned
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: '4px', 
-                    marginTop: '8px',
-                    flexWrap: 'wrap',
-                  }}>
-                    {items.slice(0, 5).map(item => (
-                      <img
-                        key={item.id}
-                        src={item.thumbnailUrl || item.sourceUrl}
-                        alt=""
-                        style={{ 
-                          width: '40px', 
-                          height: '40px', 
-                          objectFit: 'cover',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    ))}
-                    {items.length > 5 && (
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '4px',
-                        background: 'var(--bg-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        color: 'var(--text-secondary)',
-                      }}>
-                        +{items.length - 5}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => handleDismissFolder(path, false)}
-                    style={{ padding: '8px 12px' }}
-                  >
-                    ✕ Dismiss
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => handleApplyAllForFolder(path, false)}
-                  >
-                    ✓ Assign All
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Assignment Preview - Tree View */}
-      {hasAnySuggestions && previewTree && (
-        <div className="card">
-          <h2 className="card-title">🗺️ Assignment Preview</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            This is where your images will end up after applying suggestions:
-          </p>
-          
-          <div style={{ 
-            border: '1px solid var(--border)', 
-            borderRadius: 'var(--radius)',
-            overflow: 'hidden',
-          }}>
-            {previewTree.map(({ isNew, path, items }) => {
-              const pathParts = path.split('/')
-              const depth = pathParts.length - 1
-              const folderName = pathParts[pathParts.length - 1]
-              
-              return (
-                <div key={path}>
-                  {/* Folder row */}
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      paddingLeft: `${12 + depth * 20}px`,
-                      borderBottom: '1px solid var(--border)',
-                      background: isNew ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-card)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span>{isNew ? '✨' : '📁'}</span>
-                    <span style={{ 
-                      fontWeight: 500,
-                      color: isNew ? 'var(--accent)' : 'inherit',
-                    }}>
-                      {folderName}
-                    </span>
-                    {isNew && (
-                      <span style={{ 
-                        fontSize: '11px', 
-                        background: 'var(--accent)', 
-                        color: 'white',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                      }}>
-                        NEW
-                      </span>
-                    )}
-                    <span style={{ 
-                      color: 'var(--text-secondary)', 
-                      fontSize: '12px', 
-                      marginLeft: 'auto' 
-                    }}>
-                      {items.length} image{items.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  
-                  {/* Images row */}
-                  <div
-                    style={{
-                      padding: '8px 12px',
-                      paddingLeft: `${32 + depth * 20}px`,
-                      borderBottom: '1px solid var(--border)',
-                      background: 'var(--bg-tertiary)',
-                      display: 'flex',
-                      gap: '8px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    {items.map(item => (
-                      <div 
-                        key={item.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 8px',
-                          background: 'var(--bg-card)',
-                          borderRadius: '4px',
-                          border: '1px solid var(--border)',
-                        }}
-                      >
-                        <img
-                          src={item.thumbnailUrl || item.sourceUrl}
-                          alt=""
-                          style={{ 
-                            width: '32px', 
-                            height: '32px', 
-                            objectFit: 'cover',
-                            borderRadius: '3px',
-                          }}
-                        />
-                        <span style={{ fontSize: '12px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.filename || item.title}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDismissSuggestion(item.id)
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-secondary)',
-                            fontSize: '14px',
-                            padding: '2px',
-                            lineHeight: 1,
-                          }}
-                          title="Remove from suggestion"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          
-          {/* Apply All Button */}
-          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => {
-                // Dismiss all suggestions
-                const allIds = previewTree.flatMap(g => g.items.map(i => i.id))
-                setDismissedSuggestions(new Set(allIds))
-                setMediaItems(prev => prev.map(item => 
-                  allIds.includes(item.id) ? { ...item, suggestedFolder: null } : item
-                ))
-              }}
-            >
-              ✕ Dismiss All
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                // Apply all suggestions in order
-                for (const { isNew, path, items } of previewTree) {
-                  await handleApplyAllForFolder(path, isNew)
-                }
-              }}
-            >
-              ✓ Apply All Suggestions
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Media Scan Section */}
       <div className="card">
         <div className="flex justify-between items-center mb-4">
@@ -942,12 +690,149 @@ export default function FoldersTab() {
               </div>
             )}
 
-            {/* Uncategorized Media Grid */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-              gap: '12px' 
-            }}>
+            {/* Assignment Preview - shown inline during/after analysis */}
+            {hasAnySuggestions && previewTree && (
+              <div style={{ 
+                marginBottom: '16px',
+                border: '1px solid var(--border)', 
+                borderRadius: 'var(--radius)',
+                overflow: 'hidden',
+              }}>
+                <div style={{ 
+                  padding: '12px 16px', 
+                  background: 'var(--bg-tertiary)', 
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
+                    🗺️ Assignment Preview
+                  </h3>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleApplyAllSuggestions}
+                    disabled={isRunning}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    ✓ Apply All Suggestions
+                  </button>
+                </div>
+                {previewTree.map(({ isNew, path, items }) => {
+                  const pathParts = path.split('/')
+                  
+                  return (
+                    <div key={path}>
+                      {/* Folder row with full path */}
+                      <div
+                        style={{
+                          padding: '8px 12px',
+                          borderBottom: '1px solid var(--border)',
+                          background: isNew ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-card)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <span>{isNew ? '✨' : '📁'}</span>
+                        {/* Show path with breadcrumbs */}
+                        <span style={{ 
+                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          {pathParts.map((part, idx) => (
+                            <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {idx > 0 && <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>/</span>}
+                              <span style={{ 
+                                color: idx === pathParts.length - 1 
+                                  ? (isNew ? 'var(--accent)' : 'inherit')
+                                  : 'var(--text-secondary)',
+                              }}>
+                                {part}
+                              </span>
+                            </span>
+                          ))}
+                        </span>
+                        {isNew && (
+                          <span style={{ 
+                            fontSize: '10px', 
+                            background: 'var(--accent)', 
+                            color: 'white',
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                          }}>
+                            NEW
+                          </span>
+                        )}
+                        <span style={{ 
+                          color: 'var(--text-secondary)', 
+                          fontSize: '11px', 
+                          marginLeft: 'auto' 
+                        }}>
+                          {items.length}
+                        </span>
+                      </div>
+                      {/* Thumbnails row */}
+                      <div style={{
+                        padding: '8px 12px 8px 32px',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                        borderBottom: '1px solid var(--border)',
+                        background: 'var(--bg-card)',
+                      }}>
+                        {items.slice(0, 10).map(item => (
+                          <img
+                            key={item.id}
+                            src={item.thumbnailUrl || item.sourceUrl}
+                            alt={item.filename || ''}
+                            title={item.filename || item.title}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPreviewImage(item)
+                            }}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border)',
+                              cursor: 'pointer',
+                            }}
+                          />
+                        ))}
+                        {items.length > 10 && (
+                          <span style={{
+                            width: '40px',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            background: 'var(--bg-tertiary)',
+                            fontSize: '11px',
+                            color: 'var(--text-secondary)',
+                          }}>
+                            +{items.length - 10}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Uncategorized Media Grid - hide during analysis and when suggestions exist */}
+            {!isRunning && !hasAnySuggestions && (
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                gap: '12px' 
+              }}>
               {mediaItems.map(item => {
                 const targetFolder = item.suggestedFolder?.action === 'existing' 
                   ? item.suggestedFolder.folderPath 
@@ -1041,7 +926,8 @@ export default function FoldersTab() {
                   </div>
                 )
               })}
-            </div>
+              </div>
+            )}
           </>
         )}
 
@@ -1141,6 +1027,81 @@ export default function FoldersTab() {
           </div>
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            cursor: 'pointer',
+            padding: '40px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              cursor: 'default',
+            }}
+          >
+            <img
+              src={previewImage.sourceUrl}
+              alt={previewImage.filename || ''}
+              style={{
+                maxWidth: '100%',
+                maxHeight: 'calc(90vh - 60px)',
+                objectFit: 'contain',
+                borderRadius: '8px',
+              }}
+            />
+            <div style={{
+              textAlign: 'center',
+              color: 'white',
+              fontSize: '14px',
+            }}>
+              <div style={{ fontWeight: 500 }}>{previewImage.filename || previewImage.title}</div>
+              {previewImage.suggestedFolder && (
+                <div style={{ 
+                  marginTop: '4px', 
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: '13px',
+                }}>
+                  → {previewImage.suggestedFolder.folderPath || previewImage.suggestedFolder.newFolderPath}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setPreviewImage(null)}
+              style={{
+                alignSelf: 'center',
+                padding: '8px 24px',
+                background: 'var(--accent)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
