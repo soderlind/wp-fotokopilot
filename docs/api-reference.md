@@ -1,14 +1,44 @@
 # API Reference
 
+This document provides an overview of all services and utilities. Click the links for detailed documentation with JSDoc-based type definitions, parameters, and examples.
+
 ## Services
+
+### WordPress & Media
+
+| Service | Description | Documentation |
+|---------|-------------|---------------|
+| **wp-client** | WordPress REST API client for media management | [View →](services/wp-client.md) |
+| **vmf-client** | Virtual Media Folders API for folder organization | [View →](services/vmf-client.md) |
+
+### AI & Processing
+
+| Service | Description | Documentation |
+|---------|-------------|---------------|
+| **copilot-adapter** | GitHub Copilot SDK for alt text & folder suggestions | [View →](services/copilot-adapter.md) |
+| **job-queue** | Concurrent job processing with retry logic | [View →](services/job-queue.md) |
+| **thumbnail-cache** | Local image cache with LRU eviction | [View →](services/thumbnail-cache.md) |
+
+### Storage & Configuration
+
+| Service | Description | Documentation |
+|---------|-------------|---------------|
+| **credential-store** | Secure credential storage using OS keychain | [View →](services/credential-store.md) |
+| **settings-store** | Application settings persistence | [View →](services/settings-store.md) |
+
+### Utilities
+
+| Utility | Description | Documentation |
+|---------|-------------|---------------|
+| **validation** | Alt text validation and sanitization | [View →](services/validation.md) |
+
+---
+
+## Quick Reference
 
 ### wp-client
 
 WordPress REST API client for media management.
-
-#### `createWpClient(credentials)`
-
-Creates a new WordPress client instance.
 
 ```javascript
 import { createWpClient } from './services/wp-client.js'
@@ -20,30 +50,23 @@ const client = createWpClient({
 })
 ```
 
-#### Methods
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `testConnection()` | `Promise<SiteInfo>` | Tests connection and returns site info |
+| `getSiteLocale()` | `Promise<string>` | Gets site language locale |
+| `scanMedia(options)` | `AsyncGenerator<MediaItem>` | Scans media library |
+| `updateAltText(mediaId, altText)` | `Promise<{id, altText}>` | Updates alt text |
+| `getUncategorizedMedia(limit)` | `Promise<MediaItem[]>` | Gets media without folders |
+| `listPlugins()` | `Promise<Plugin[]>` | Lists installed plugins |
+| `installPlugin(slug)` | `Promise<Plugin>` | Installs plugin from WP.org |
 
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `testConnection()` | - | `Promise<SiteInfo>` | Tests connection and returns site info |
-| `getSiteLocale()` | - | `Promise<string>` | Gets site language locale |
-| `getLanguageName(locale)` | `string` | `string` | Converts locale to language name |
-| `scanMedia(options)` | `{missingAltOnly, limit, perPage}` | `AsyncGenerator<MediaItem>` | Scans media library |
-| `updateAltText(mediaId, altText)` | `number, string` | `Promise<{id, altText}>` | Updates alt text |
-| `getMedia(mediaId)` | `number` | `Promise<Object>` | Gets single media item |
-| `getUncategorizedMedia(limit)` | `number` | `Promise<MediaItem[]>` | Gets media without folders |
-| `listPlugins()` | - | `Promise<Plugin[]>` | Lists installed plugins |
-| `installPlugin(slug)` | `string` | `Promise<Plugin>` | Installs plugin from WP.org |
-| `activatePlugin(plugin)` | `string` | `Promise<Plugin>` | Activates a plugin |
+[Full documentation →](services/wp-client.md)
 
 ---
 
 ### vmf-client
 
 Virtual Media Folders REST API client.
-
-#### `createVmfClient(credentials)`
-
-Creates a new VMF client instance.
 
 ```javascript
 import { createVmfClient } from './services/vmf-client.js'
@@ -55,19 +78,16 @@ const vmf = createVmfClient({
 })
 ```
 
-#### Methods
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `listFolders()` | `Promise<VmfFolder[]>` | Lists folders as tree |
+| `createFolder(name, parentId)` | `Promise<VmfFolder>` | Creates a folder |
+| `createFolderPath(path)` | `Promise<VmfFolder>` | Creates nested path |
+| `assignMedia(folderId, mediaIds)` | `Promise<Array>` | Assigns media to folder |
+| `removeMedia(folderId, mediaIds)` | `Promise<Array>` | Removes media from folder |
+| `getUncategorizedMedia(limit)` | `Promise<MediaItem[]>` | Gets unassigned media |
 
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `listFolders()` | - | `Promise<VmfFolder[]>` | Lists folders as tree |
-| `createFolder(name, parentId)` | `string, number` | `Promise<VmfFolder>` | Creates a folder |
-| `createFolderPath(path)` | `string` | `Promise<VmfFolder>` | Creates nested path |
-| `assignMedia(folderId, mediaIds)` | `number, number[]` | `Promise<Array>` | Assigns media to folder |
-| `removeMedia(folderId, mediaIds)` | `number, number[]` | `Promise<Array>` | Removes media from folder |
-| `getFolder(folderId)` | `number` | `Promise<VmfFolder>` | Gets single folder |
-| `deleteFolder(folderId)` | `number` | `Promise<void>` | Deletes a folder |
-| `getUncategorizedMedia(limit)` | `number` | `Promise<MediaItem[]>` | Gets unassigned media |
-| `getAllAssignedMediaIds()` | - | `Promise<Object>` | Gets assignment info |
+[Full documentation →](services/vmf-client.md)
 
 ---
 
@@ -75,19 +95,16 @@ const vmf = createVmfClient({
 
 GitHub Copilot SDK integration.
 
-#### Functions
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `initCopilot()` | `Promise<void>` | Initializes Copilot client |
+| `checkCopilotStatus()` | `Promise<StatusInfo>` | Gets CLI status |
+| `checkCopilotAuth()` | `Promise<AuthInfo>` | Gets auth status |
+| `listModels(options)` | `Promise<Model[]>` | Lists available models |
+| `generateAltText(imagePath, options)` | `Promise<{altText, raw}>` | Generates alt text |
+| `generateAltTextWithFolder(...)` | `Promise<FolderSuggestion>` | Suggests folder |
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `initCopilot()` | - | `Promise<void>` | Initializes Copilot client |
-| `stopCopilot()` | - | `Promise<void>` | Stops Copilot client |
-| `checkCopilotStatus()` | - | `Promise<StatusInfo>` | Gets CLI status |
-| `checkCopilotAuth()` | - | `Promise<AuthInfo>` | Gets auth status |
-| `setCliServerUrl(url)` | `string\|null` | `void` | Sets custom CLI URL |
-| `getCliServerUrl()` | - | `string\|null` | Gets current CLI URL |
-| `listModels(options)` | `{visionOnly}` | `Promise<Model[]>` | Lists available models |
-| `generateAltText(imagePath, options)` | `string, {maxLength, model}` | `Promise<{altText, raw}>` | Generates alt text |
-| `suggestFolder(imagePath, options)` | `string, {...}` | `Promise<FolderSuggestion>` | Suggests folder |
+[Full documentation →](services/copilot-adapter.md)
 
 ---
 
@@ -95,24 +112,20 @@ GitHub Copilot SDK integration.
 
 Secure credential storage using OS keychain.
 
-#### Functions
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `saveCredentials(siteId, creds)` | `Promise<Object>` | Saves encrypted creds |
+| `getCredentials(siteId)` | `Promise<Credentials\|undefined>` | Gets decrypted creds |
+| `deleteCredentials(siteId)` | `Promise<void>` | Deletes creds |
+| `listSites()` | `Promise<Site[]>` | Lists sites (no passwords) |
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `saveCredentials(siteId, creds)` | `string, Object` | `Promise<Object>` | Saves encrypted creds |
-| `getCredentials(siteId)` | `string` | `Promise<Credentials\|undefined>` | Gets decrypted creds |
-| `deleteCredentials(siteId)` | `string` | `Promise<void>` | Deletes creds |
-| `listSites()` | - | `Promise<Site[]>` | Lists sites (no passwords) |
+[Full documentation →](services/credential-store.md)
 
 ---
 
 ### job-queue
 
 Concurrent job processing with retry logic.
-
-#### `new JobQueue(options)`
-
-Creates a job queue instance.
 
 ```javascript
 import { JobQueue } from './services/job-queue.js'
@@ -123,26 +136,18 @@ const queue = new JobQueue({
 })
 ```
 
-#### Methods
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `createJob(id, items, handler)` | `Job` | Creates a job |
+| `start(jobId)` | `Promise<Job>` | Starts job processing |
+| `pause(jobId)` | `void` | Pauses a running job |
+| `resume(jobId)` | `void` | Resumes paused job |
+| `cancel(jobId)` | `void` | Cancels a job |
+| `getJob(jobId)` | `Job\|undefined` | Gets job by ID |
 
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `createJob(id, items, handler)` | `string, Array, Function` | `Job` | Creates a job |
-| `start(jobId)` | `string` | `Promise<Job>` | Starts job processing |
-| `pause(jobId)` | `string` | `void` | Pauses a running job |
-| `resume(jobId)` | `string` | `void` | Resumes paused job |
-| `cancel(jobId)` | `string` | `void` | Cancels a job |
-| `getJob(jobId)` | `string` | `Job\|undefined` | Gets job by ID |
-| `clearJob(jobId)` | `string` | `void` | Removes job from queue |
-| `getStats()` | - | `QueueStats` | Gets queue statistics |
+**Events:** `job:started`, `job:progress`, `job:finished`
 
-#### Events
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `job:started` | `{jobId}` | Job started processing |
-| `job:progress` | `JobProgress` | Progress update |
-| `job:finished` | `{jobId, status, completed, failed, duration}` | Job completed |
+[Full documentation →](services/job-queue.md)
 
 ---
 
@@ -150,25 +155,13 @@ const queue = new JobQueue({
 
 Application settings persistence.
 
-#### Functions
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `getSettings()` | `Promise<Settings>` | Gets current settings |
+| `saveSettings(settings)` | `Promise<void>` | Saves settings |
+| `initSettings()` | `Promise<void>` | Initializes on startup |
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `getSettings()` | - | `Promise<Settings>` | Gets current settings |
-| `saveSettings(settings)` | `Partial<Settings>` | `Promise<void>` | Saves settings |
-| `initSettings()` | - | `Promise<void>` | Initializes on startup |
-
-#### Default Settings
-
-```javascript
-{
-  maxAltLength: 125,      // Max alt text characters
-  concurrency: 3,         // Parallel job workers
-  exportFormat: 'csv',    // Export format
-  copilotServerUrl: '',   // Custom CLI URL (empty = auto)
-  copilotModel: 'gpt-4o', // Default AI model
-}
-```
+[Full documentation →](services/settings-store.md)
 
 ---
 
@@ -176,16 +169,15 @@ Application settings persistence.
 
 Local image caching with LRU eviction.
 
-#### Functions
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `initCache()` | `Promise<void>` | Initializes cache dir |
+| `getThumbnailPath(mediaItem)` | `Promise<string>` | Gets/downloads image |
+| `clearCache()` | `Promise<void>` | Clears all cached files |
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `initCache()` | - | `Promise<void>` | Initializes cache dir |
-| `getThumbnailPath(mediaItem)` | `MediaItem` | `Promise<string>` | Gets/downloads image |
-| `clearCache()` | - | `Promise<void>` | Clears all cached files |
+Cache: `$TMPDIR/wp-fotokopilot-cache/` (500 MB max, LRU eviction)
 
-Cache location: `$TMPDIR/wp-fotokopilot-cache/`  
-Max size: 500 MB (LRU eviction)
+[Full documentation →](services/thumbnail-cache.md)
 
 ---
 
@@ -193,21 +185,14 @@ Max size: 500 MB (LRU eviction)
 
 Alt text validation utilities.
 
-#### Functions
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `validateAltText(text, maxLength)` | `ValidationResult` | Validates alt text |
+| `sanitizeAltText(text, maxLength)` | `string` | Cleans alt text |
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `validateAltText(text, maxLength)` | `string, number` | `ValidationResult` | Validates alt text |
-| `sanitizeAltText(text, maxLength)` | `string, number` | `string` | Cleans alt text |
+**Validation Rules:** Max length, no forbidden prefixes, no file extensions, no AI mentions, no keyword stuffing
 
-#### Validation Rules
-
-- Maximum length (default: 125 characters)
-- No forbidden prefixes ("Image of", "Photo of", etc.)
-- No file extensions in text
-- No AI mentions (ChatGPT, Copilot, etc.)
-- No filename patterns
-- No keyword stuffing
+[Full documentation →](services/validation.md)
 
 ---
 
