@@ -1,7 +1,39 @@
+/**
+ * @fileoverview Virtual Media Folders (VMF) REST API client.
+ * Handles folder management and media organization for WordPress.
+ * @module main/services/vmf-client
+ */
+
+/**
+ * @typedef {Object} VmfFolder
+ * @property {number} id - Folder ID
+ * @property {string} name - Folder name
+ * @property {number} parentId - Parent folder ID (0 for root)
+ * @property {number} count - Number of media items
+ * @property {VmfFolder[]} children - Child folders
+ * @property {string} path - Full folder path
+ */
+
+/**
+ * Creates a VMF REST API client.
+ * @param {Object} credentials - WordPress site credentials
+ * @param {string} credentials.url - WordPress site URL
+ * @param {string} credentials.username - WordPress username
+ * @param {string} credentials.password - Application password
+ * @returns {Object} VMF client with API methods
+ */
 export function createVmfClient({ url, username, password }) {
   const baseUrl = url.replace(/\/$/, '')
   const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
 
+  /**
+   * Makes an authenticated request to the VMF REST API.
+   * @private
+   * @param {string} endpoint - API endpoint path
+   * @param {Object} [options] - Fetch options
+   * @returns {Promise<any>} Parsed JSON response
+   * @throws {Error} For API errors
+   */
   async function request(endpoint, options = {}) {
     const fullUrl = `${baseUrl}/wp-json/vmfo/v1${endpoint}`
 
@@ -37,7 +69,12 @@ export function createVmfClient({ url, username, password }) {
     return text ? JSON.parse(text) : {}
   }
 
-  // Helper to make requests to WordPress standard REST API (for media queries)
+  /**
+   * Makes an authenticated request to the WordPress standard REST API.
+   * @private
+   * @param {string} endpoint - API endpoint path
+   * @returns {Promise<{data: any, headers: Headers}>}
+   */
   async function wpRequest(endpoint) {
     const fullUrl = `${baseUrl}/wp-json${endpoint}`
 
@@ -71,6 +108,12 @@ export function createVmfClient({ url, username, password }) {
     }
   }
 
+  /**
+   * Builds a hierarchical tree from flat folder list.
+   * @private
+   * @param {Array} flatFolders - Flat array of folders from API
+   * @returns {VmfFolder[]} Hierarchical folder tree
+   */
   function buildFolderTree(flatFolders) {
     const map = new Map()
     const roots = []
@@ -99,6 +142,14 @@ export function createVmfClient({ url, username, password }) {
     return roots
   }
 
+  /**
+   * Finds a folder by name and parent ID in the tree.
+   * @private
+   * @param {VmfFolder[]} tree - Folder tree to search
+   * @param {string} name - Folder name to find
+   * @param {number} parentId - Expected parent ID
+   * @returns {VmfFolder|undefined}
+   */
   function findFolderByNameAndParent(tree, name, parentId) {
     const search = (folders, currentParent) => {
       for (const folder of folders) {
@@ -122,11 +173,21 @@ export function createVmfClient({ url, username, password }) {
   }
 
   return {
+    /**
+     * Lists all folders as a hierarchical tree.
+     * @returns {Promise<VmfFolder[]>}
+     */
     async listFolders() {
       const folders = await request('/folders')
       return buildFolderTree(Array.isArray(folders) ? folders : [])
     },
 
+    /**
+     * Creates a new folder.
+     * @param {string} name - Folder name
+     * @param {number} [parentId=0] - Parent folder ID
+     * @returns {Promise<VmfFolder>}
+     */
     async createFolder(name, parentId = 0) {
       return request('/folders', {
         method: 'POST',
@@ -134,6 +195,11 @@ export function createVmfClient({ url, username, password }) {
       })
     },
 
+    /**
+     * Creates a folder path, creating any missing parent folders.
+     * @param {string} path - Folder path like "Category/Subcategory"
+     * @returns {Promise<VmfFolder>} The deepest folder
+     */
     async createFolderPath(path) {
       const parts = path.split('/').filter(Boolean)
       let parentId = 0
@@ -156,6 +222,12 @@ export function createVmfClient({ url, username, password }) {
       return currentFolder
     },
 
+    /**
+     * Assigns media items to a folder.
+     * @param {number} folderId - Target folder ID
+     * @param {number|number[]} mediaIds - Media ID(s) to assign
+     * @returns {Promise<Array>} Assignment results
+     */
     async assignMedia(folderId, mediaIds) {
       const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
       console.log(`[VMF] Assigning media ${JSON.stringify(ids)} to folder ${folderId}`)
@@ -172,6 +244,12 @@ export function createVmfClient({ url, username, password }) {
       return results
     },
 
+    /**
+     * Removes media items from a folder.
+     * @param {number} folderId - Folder ID
+     * @param {number|number[]} mediaIds - Media ID(s) to remove
+     * @returns {Promise<Array>} Removal results
+     */
     async removeMedia(folderId, mediaIds) {
       const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
 
@@ -187,18 +265,38 @@ export function createVmfClient({ url, username, password }) {
       return results
     },
 
+    /**
+     * Gets a single folder by ID.
+     * @param {number} folderId - Folder ID
+     * @returns {Promise<VmfFolder>}
+     */
     async getFolder(folderId) {
       return request(`/folders/${folderId}`)
     },
 
+    /**
+     * Deletes a folder.
+     * @param {number} folderId - Folder ID
+     * @returns {Promise<void>}
+     */
     async deleteFolder(folderId) {
       return request(`/folders/${folderId}`, { method: 'DELETE' })
     },
 
+    /**
+     * Gets folder counts from the VMF API.
+     * @returns {Promise<Object>}
+     */
     async getFolderCounts() {
       return request('/folders/counts')
     },
 
+    /**
+     * Gets media not assigned to any folder via VMF's uncategorized endpoint.
+     * @param {number} [limit=50] - Maximum items to return
+     * @returns {Promise<Array>} Uncategorized media items
+     * @throws {Error} If endpoint not available
+     */
     async getUncategorizedMedia(limit = 50) {
       // Get media that is not assigned to any folder
       // This uses the VMF API endpoint for uncategorized media
@@ -226,6 +324,13 @@ export function createVmfClient({ url, username, password }) {
       }
     },
 
+    /**
+     * Gets media items in a specific folder.
+     * Note: VMF doesn't have a GET endpoint for this, returns empty.
+     * @deprecated Use getAllAssignedMediaIds and check taxonomy instead
+     * @param {number} folderId - Folder ID
+     * @returns {Promise<Array>} Always empty
+     */
     async getFolderMedia(folderId) {
       // VMF doesn't have a GET endpoint for folder media
       // Return empty - use getAllAssignedMediaIds instead
@@ -234,9 +339,10 @@ export function createVmfClient({ url, username, password }) {
     },
 
     /**
-     * Get all media IDs that are assigned to any folder.
-     * Uses the folder counts from VMF API - doesn't need to query each folder.
-     * The actual filtering is done by checking the vmfo_folder taxonomy on each media item.
+     * Gets information about all assigned media.
+     * Returns folder count info, not actual media IDs.
+     * Actual filtering should check vmfo_folder taxonomy on each media item.
+     * @returns {Promise<{folderCount: number, totalAssigned: number, folderIds: number[]}>}
      */
     async getAllAssignedMediaIds() {
       // Get all folders with their counts

@@ -1,7 +1,53 @@
+/**
+ * @fileoverview WordPress REST API client for media management.
+ * Handles authentication, media scanning, alt text updates, and plugin management.
+ * @module main/services/wp-client
+ */
+
+/**
+ * @typedef {Object} WpCredentials
+ * @property {string} url - WordPress site URL
+ * @property {string} username - WordPress username
+ * @property {string} password - Application password
+ */
+
+/**
+ * @typedef {Object} MediaItem
+ * @property {number} id - WordPress media ID
+ * @property {string} sourceUrl - Full image URL
+ * @property {string} [thumbnailUrl] - Thumbnail URL
+ * @property {string} filename - Original filename/slug
+ * @property {string} title - Media title
+ * @property {string} currentAlt - Current alt text
+ * @property {string} mimeType - MIME type
+ */
+
+/**
+ * @typedef {Object} SiteInfo
+ * @property {string} name - Site name
+ * @property {string} description - Site description
+ * @property {string} url - Site URL
+ * @property {string} locale - Site language locale
+ * @property {Object} capabilities - Available features (REST, VMF)
+ */
+
+/**
+ * Creates a WordPress REST API client.
+ * @param {WpCredentials} credentials - WordPress site credentials
+ * @returns {Object} WordPress client with API methods
+ */
 export function createWpClient({ url, username, password }) {
   const baseUrl = url.replace(/\/$/, '')
   const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
 
+  /**
+   * Makes an authenticated request to the WordPress REST API.
+   * @private
+   * @param {string} endpoint - API endpoint path
+   * @param {Object} [options] - Fetch options
+   * @returns {Promise<{data: any, headers: Headers}>}
+   * @throws {Error} For API errors (401, 403, 429, etc.)
+   */
   async function request(endpoint, options = {}) {
     const fullUrl = `${baseUrl}/wp-json${endpoint}`
     
@@ -64,6 +110,10 @@ export function createWpClient({ url, username, password }) {
   }
 
   return {
+    /**
+     * Tests connection and retrieves site information.
+     * @returns {Promise<SiteInfo>} Site info with capabilities
+     */
     async testConnection() {
       const { data } = await request('/')
       
@@ -87,11 +137,20 @@ export function createWpClient({ url, username, password }) {
       }
     },
 
+    /**
+     * Gets the site's configured locale.
+     * @returns {Promise<string>} WordPress locale code (e.g., 'en_US')
+     */
     async getSiteLocale() {
       const { data } = await request('/')
       return data.language || 'en_US'
     },
 
+    /**
+     * Converts WordPress locale code to human-readable language name.
+     * @param {string} locale - WordPress locale code
+     * @returns {string} Human-readable language name
+     */
     getLanguageName(locale) {
       // Map WordPress locale codes to human-readable language names
       const languageMap = {
@@ -141,6 +200,14 @@ export function createWpClient({ url, username, password }) {
       return 'English'
     },
 
+    /**
+     * Scans media library and yields items as an async generator.
+     * @param {Object} options - Scan options
+     * @param {boolean} [options.missingAltOnly=false] - Only return items without alt text
+     * @param {number} [options.limit] - Maximum items to return
+     * @param {number} [options.perPage=100] - Items per API request
+     * @yields {MediaItem} Media items one at a time
+     */
     async *scanMedia({ missingAltOnly = false, limit = undefined, perPage = 100 }) {
       let page = 1
       let fetched = 0
@@ -184,6 +251,12 @@ export function createWpClient({ url, username, password }) {
       }
     },
 
+    /**
+     * Updates alt text for a media item.
+     * @param {number} mediaId - WordPress media ID
+     * @param {string} altText - New alt text
+     * @returns {Promise<{id: number, altText: string}>}
+     */
     async updateAltText(mediaId, altText) {
       const { data } = await request(`/wp/v2/media/${mediaId}`, {
         method: 'POST',
@@ -196,11 +269,21 @@ export function createWpClient({ url, username, password }) {
       }
     },
 
+    /**
+     * Gets a single media item by ID.
+     * @param {number} mediaId - WordPress media ID
+     * @returns {Promise<Object>} WordPress media object
+     */
     async getMedia(mediaId) {
       const { data } = await request(`/wp/v2/media/${mediaId}`)
       return data
     },
 
+    /**
+     * Gets media items not assigned to any VMF folder.
+     * @param {number} [limit=50] - Maximum items to return
+     * @returns {Promise<MediaItem[]>} Uncategorized media items
+     */
     async getUncategorizedMedia(limit = 50) {
       // Query media not assigned to any vmfo_folder taxonomy term
       // VMF stores folder assignments as terms in the vmfo_folder taxonomy

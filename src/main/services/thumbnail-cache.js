@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Local thumbnail cache with LRU eviction.
+ * Downloads and caches image thumbnails for Copilot vision analysis.
+ * @module main/services/thumbnail-cache
+ */
+
 import { createWriteStream } from 'node:fs'
 import { mkdir, stat, unlink, readdir } from 'node:fs/promises'
 import { pipeline } from 'node:stream/promises'
@@ -5,14 +11,31 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 
+/** @type {string} Cache directory path */
 const CACHE_DIR = join(tmpdir(), 'wp-fotokopilot-cache')
+
+/** @type {number} Maximum cache size in bytes (500 MB) */
 const MAX_CACHE_SIZE = 500 * 1024 * 1024
+
+/** @type {Map<string, number>} LRU tracking: hash -> last access timestamp */
 const lruOrder = new Map()
 
+/**
+ * Initializes the cache directory.
+ * @returns {Promise<void>}
+ */
 export async function initCache() {
   await mkdir(CACHE_DIR, { recursive: true })
 }
 
+/**
+ * Gets or downloads a thumbnail to the local cache.
+ * @param {Object} mediaItem - WordPress media item
+ * @param {string} [mediaItem.thumbnailUrl] - Thumbnail URL
+ * @param {string} [mediaItem.sourceUrl] - Full image URL (fallback)
+ * @returns {Promise<string>} Local file path to the cached thumbnail
+ * @throws {Error} If no image URL available or download fails
+ */
 export async function getThumbnailPath(mediaItem) {
   await mkdir(CACHE_DIR, { recursive: true })
 
@@ -43,6 +66,12 @@ export async function getThumbnailPath(mediaItem) {
   }
 }
 
+/**
+ * Extracts file extension from a URL.
+ * @private
+ * @param {string} url - Image URL
+ * @returns {string} File extension (defaults to 'jpg')
+ */
 function extractExtension(url) {
   try {
     const pathname = new URL(url).pathname
@@ -53,6 +82,11 @@ function extractExtension(url) {
   }
 }
 
+/**
+ * Evicts least recently used files if cache exceeds size limit.
+ * @private
+ * @returns {Promise<void>}
+ */
 async function evictIfNeeded() {
   try {
     const files = await readdir(CACHE_DIR)
@@ -104,6 +138,10 @@ async function evictIfNeeded() {
   }
 }
 
+/**
+ * Clears all cached thumbnails.
+ * @returns {Promise<void>}
+ */
 export async function clearCache() {
   try {
     const files = await readdir(CACHE_DIR)

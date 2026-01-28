@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Main process entry point for WP FotoKopilot Electron app.
+ * Initializes the main window, registers IPC handlers, and manages app lifecycle.
+ * @module main/index
+ */
+
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc/router.js'
@@ -5,8 +11,14 @@ import { initSettings } from './services/settings-store.js'
 
 const isDev = !app.isPackaged
 
+/** @type {BrowserWindow|undefined} */
 let mainWindow
 
+/**
+ * Creates the main application window with appropriate settings
+ * for development or production mode.
+ * @returns {void}
+ */
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,

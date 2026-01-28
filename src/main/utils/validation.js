@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Alt text validation and sanitization utilities.
+ * Enforces accessibility best practices for image alt text.
+ * @module main/utils/validation
+ */
+
+/** @type {string[]} Forbidden alt text prefixes that reduce accessibility */
 const FORBIDDEN_PREFIXES = [
   'image of',
   'picture of',
@@ -11,6 +18,19 @@ const FORBIDDEN_PREFIXES = [
   'an picture',
 ]
 
+/**
+ * @typedef {Object} ValidationResult
+ * @property {boolean} valid - Whether the alt text passes all validation rules
+ * @property {string[]} issues - List of validation issues found
+ * @property {string} text - The trimmed input text
+ */
+
+/**
+ * Validates alt text against accessibility best practices.
+ * @param {string|undefined} text - Alt text to validate
+ * @param {number} [maxLength=125] - Maximum allowed character length
+ * @returns {ValidationResult} Validation result with issues
+ */
 export function validateAltText(text, maxLength = 125) {
   const issues = []
 
@@ -67,6 +87,12 @@ export function validateAltText(text, maxLength = 125) {
   }
 }
 
+/**
+ * Sanitizes alt text by removing forbidden prefixes and ensuring proper formatting.
+ * @param {string|undefined} text - Alt text to sanitize
+ * @param {number} [maxLength=125] - Maximum allowed character length
+ * @returns {string} Sanitized alt text
+ */
 export function sanitizeAltText(text, maxLength = 125) {
   if (!text || typeof text !== 'string') {
     return ''
