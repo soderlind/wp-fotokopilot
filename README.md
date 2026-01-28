@@ -1,5 +1,7 @@
 # WP FotoKopilot
 
+> I did this as a PoC, testing [GitHub Copilot SDK](https://github.com/github/copilot-sdk). Developer guide is available: [WP FotoKopilot Developer Documentation](https://github.com/soderlind/wp-fotokopilot/tree/main/docs#wp-fotokopilot-developer-documentation).
+
 A cross-platform Electron desktop app that connects to WordPress sites via the REST API, scans the media library, and generates missing (or improved) alt text using the GitHub Copilot SDK. Optionally organizes media into Virtual Media Folders (VMF).
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
